@@ -29,6 +29,6 @@ https://api.bilibili.com/x/v2/dm/wbi/web/seg.so?.....
 
 开发者工具中搜索某个评论内容，查找Api接口，
 长这个样，有可能有好几个。  
-https://api.bilibili.com/x/v2/reply/wbi/main?oid=......
+https://api.bilibili.com/x/v2/reply/wbi/main?
 
 ![alt text](image-3.png)

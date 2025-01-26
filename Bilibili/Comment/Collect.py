@@ -7,7 +7,7 @@ import json
 import re
 
 
-#发送请求
+#请求模块
 def Get_Response(url, date):
     headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0',
@@ -19,7 +19,7 @@ def Get_Response(url, date):
 
 
 
-#获取数据
+#获取模块
 def Get_Content():
     
     link = "https://api.bilibili.com/x/v2/reply/wbi/main" # 请求网址
@@ -35,7 +35,17 @@ def Get_Content():
         'wts': 1737777153
     } #查询参数
 
-    response = requests.get(url=link, params=params, headers=headers)
+    Get_Response(url=link, date=params)#调用发送请求函数
+    response= requests.get(url=link, params=params, headers=headers)
+    
+    JsonDate = response.json() #获取json数据
+    
+    # 解析数据
+    replies=JsonDate['data']['replies']
+    print(replies)
+    return replies
+    
+
     response.encoding = 'utf-8'  #转码
     html_data = response.text
     
@@ -70,5 +80,11 @@ def main():date
     print(response.status_code)  # 输出状态码，200表示成功
     print(response.text)
 
+    
+    
+    
+    
 if __name__ == "__main__":
-    main()
+    Get_Content()
+    
+    '''
