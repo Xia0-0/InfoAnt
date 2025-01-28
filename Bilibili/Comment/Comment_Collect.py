@@ -68,7 +68,7 @@ def save_comments(comments):
         f.write('\n'.join(comments))
 
 # 主函数
-def main():date
+def main():
     """主函数，用于执行爬取弹幕的流程"""
     url = "https://api.bilibili.com/x/v2/reply/wbi/main?oid=1153355619&type=1&mode=3&pagination_str=%7B%22offset%22:%22%22%7D&plat=1&seek_rpid=&web_location=1315875&w_rid=8f4cfe108dc09524609408b385fdb8f1&wts=1737772836"
     response = Get_Response(url, date)
