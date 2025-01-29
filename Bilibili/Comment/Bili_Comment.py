@@ -1,21 +1,29 @@
 '''
 爬取B站视频评论，模块化分工，便于之后封装
 '''
-#导入模块
+
+#引入模块
 import requests
-import json
 import re
+import time
+import csv
+
+# 伪装模块
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0',
+    }
 
 
 #请求模块
-def Get_Response(url, date):
-    headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0',
-    'Referer': 'https://www.bilibili.com/'
-    #'cookie': 'SESSDATA=; bili_jct=; DedeUserID=; DedeUserID__ckMd5=; sid=; CURRENT_FNVAL=; rpdid=; LIVE_BUVID=; CURRENT_QUALITY=; CURRENT_BLACKGAP=; bp_t_offset
-}#模拟请求头 
-    response= requests.get(url=url, params=date, headers=headers)
-    return response
+def get_video_id(bv):
+    url = f'https://www.bilibili.com/video/{bv}'
+    html = requests.get(url, headers=headers)
+    html.encoding = 'utf-8'
+    content = html.text
+    aid_regx = '"aid":(.*?),"bvid":"{}"'.format(bv)
+    video_aid = re.findall(aid_regx, content)[0]
+    return video_aid
+
 
 
 
