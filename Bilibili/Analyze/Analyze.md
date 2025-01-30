@@ -5,7 +5,12 @@
 ### 弹幕
 aid (AV号): 视频的AV号码。  
 bvid (BV号): BV号是B站后来引入的一种视频标识符，用来替代原有的AV号。暂时两个都有。  
-cid (Comment ID): 视频弹幕ID。  
+cid (Comment ID): 视频弹幕ID。 
+ 
+TYPE:
+1    # 视频
+12   # 专栏
+17   # 单集（番剧/影视）
 
 v1版本的弹幕列表接口：  
 https://api.bilibili.com/x/v1/dm/list.so?oid=CID
@@ -29,6 +34,6 @@ https://api.bilibili.com/x/v2/dm/wbi/web/seg.so?.....
 
 开发者工具中搜索某个评论内容，查找Api接口，
 长这个样，有可能有好几个。  
-https://api.bilibili.com/x/v2/reply/wbi/main?
+https://api.bilibili.com/x/v2/reply/main.....
 
 ![alt text](image-3.png)
