@@ -6,11 +6,21 @@
 aid (AV号): 视频的AV号码。  
 bvid (BV号): BV号是B站后来引入的一种视频标识符，用来替代原有的AV号。暂时两个都有。  
 cid (Comment ID): 视频弹幕ID。 
- 
+
+
+## BVID和AVID互相转换：  
+https://api.bilibili.com/x/web-interface/view?bvid=BV1Pj411S7LW
+
+https://api.bilibili.com/x/web-interface/view?aid=445203798
+
 TYPE:
 1    # 视频
 12   # 专栏
 17   # 单集（番剧/影视）
+
+
+
+B 站评论分为一级评论和二级评论（回复评论）。
 
 v1版本的弹幕列表接口：  
 https://api.bilibili.com/x/v1/dm/list.so?oid=CID

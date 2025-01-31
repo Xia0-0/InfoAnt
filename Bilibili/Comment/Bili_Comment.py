@@ -1,164 +1,115 @@
-import requests
-import csv
-import time
-import json
-from datetime import datetime
-from pathlib import Path
-from typing import List, Dict
+#引入模块
+import requests  # 发送 HTTP 请求，获取网页内容
+import re  # 使用正则表达式提取数据
+import time  # 控制请求间隔，避免被封
+import csv  # 处理 CSV 文件
 
-# 常量配置
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-    'Referer': 'https://www.bilibili.com/'
+
+# 伪装模块
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0',
 }
-API_BASE = {
-    'view': 'https://api.bilibili.com/x/web-interface/view',  # 获取视频基本信息
-    'main_reply': 'https://api.bilibili.com/x/v2/reply/main',  # 获取主评论
-    'reply_detail': 'https://api.bilibili.com/x/v2/reply/reply'  # 获取子评论
-}
-REQUEST_INTERVAL = 1.5  # 设置请求间隔，避免请求过于频繁
-MAX_RETRY = 3  # 最大重试次数
 
-# 数据模型
-class Comment:
-    """评论数据模型，存储评论信息"""
-    def __init__(self, data: Dict, parent_user: str = ""):
-        self.rpid: int = data['rpid']  # 评论ID
-        self.user_name: str = data['member']['uname']  # 用户昵称
-        self.content: str = data['content']['message']  # 评论内容
-        self.parent_user: str = parent_user  # 父评论用户
-        self.level: str = '一级评论' if parent_user == "" else '二级评论'  # 评论层级
-        self.gender: str = data['member']['sex']  # 用户性别
-        self.user_level: int = data['member']['level_info']['current_level']  # 用户等级
-        self.likes: int = data['like']  # 点赞数
-        self.ctime: str = datetime.fromtimestamp(data['ctime']).strftime('%Y-%m-%d %H:%M:%S')  # 评论时间
-        
-    def to_dict(self) -> Dict:
-        """将评论对象转换为字典"""
-        return self.__dict__
 
-# 核心功能模块
-class BiliCommentCrawler:
-    def __init__(self):
-        self.session = requests.Session()  # 使用Session提高性能
-        self.session.headers.update(HEADERS)  # 更新请求头
+# 获取视频的 aid
+def Get_video_id(bv):
+    url = f'https://api.bilibili.com/x/web-interface/view?bvid={bv}'
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get('data', {}).get('aid')
+        else:
+            print(f"请求失败，状态码: {response.status_code}")
+            return None
+    except requests.RequestException as e:
+        print(f"请求错误: {e}")
+        return None
 
-    def get_aid(self, bvid: str) -> int:
-        """通过BV号获取视频的aid"""
-        params = {'bvid': bvid}
-        for _ in range(MAX_RETRY):
-            try:
-                resp = self.session.get(API_BASE['view'], params=params, timeout=10)
-                if resp.status_code == 200:
-                    return resp.json()['data']['aid']
-            except Exception as e:
-                print(f"获取aid失败: {e}")
-                time.sleep(REQUEST_INTERVAL)
-        return 0
 
-    def fetch_comments(self, oid: int) -> List[Comment]:
-        """获取视频的所有评论，包括子评论"""
-        comments = []
-        next_page = 0
-        
-        while True:
-            params = {
-                'oid': oid,
-                'type': 1,  # 评论类型：1 表示视频评论
-                'mode': 3,  # 获取评论模式
-                'next': next_page  # 分页参数
-            }
-            
-            try:
-                resp = self.session.get(API_BASE['main_reply'], params=params)
-                data = resp.json().get('data', {})
-                
-                # 处理主评论
-                if 'replies' in data:
-                    for reply in data['replies']:
-                        comments.append(Comment(reply))
-                        comments.extend(self._fetch_sub_replies(oid, reply['rpid'], reply['member']['uname']))  # 获取二级评论
-                
-                # 分页控制
-                if data.get('cursor', {}).get('is_end', True):
-                    break
-                next_page = data.get('cursor', {}).get('next', 0)
-                
-            except Exception as e:
-                print(f"获取评论失败: {e}")
-                break
-            
-            time.sleep(REQUEST_INTERVAL)
-        
-        return comments
 
-    def _fetch_sub_replies(self, oid: int, root_rpid: int, parent_user: str) -> List[Comment]:
-        """获取子评论"""
-        sub_comments = []
-        page = 1
-        
-        while True:
-            params = {
-                'oid': oid,
-                'type': 1,
-                'root': root_rpid,
-                'pn': page  # 当前页数
-            }
-            
-            try:
-                resp = self.session.get(API_BASE['reply_detail'], params=params)
-                data = resp.json().get('data', {})
-                
-                # 没有子评论时退出
-                if not data.get('replies', []):
-                    break
-                
-                for reply in data['replies']:
-                    sub_comments.append(Comment(reply, parent_user))
-                
-                # 如果所有子评论都已经获取完毕，退出循环
-                if page >= data['page']['count']:
-                    break
-                page += 1
-                
-            except Exception as e:
-                print(f"获取子评论失败: {e}")
-                break
-            
-            time.sleep(REQUEST_INTERVAL)
-        
-        return sub_comments
+# 获取一级评论
+def Fetch_comments(video_id, max_pages=100):
+    comments = []
+    for page in range(1, max_pages + 1):
+        url = f'https://api.bilibili.com/x/v2/reply?pn={page}&type=1&oid={video_id}&sort=2'
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                data = response.json().get('data', {})
+                for comment in data.get('replies', []):
+                    comment_info = {
+                        '用户昵称': comment['member']['uname'],
+                        '评论内容': comment['content']['message'],
+                        '被回复用户': '',
+                        '评论层级': '一级评论',
+                        '性别': comment['member']['sex'],
+                        '用户当前等级': comment['member']['level_info']['current_level'],
+                        '点赞数量': comment['like'],
+                        '回复时间': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(comment['ctime']))
+                    }
+                    comments.append(comment_info)
+                    # 获取二级评论
+                    replies = Fetch_comment_replies(video_id, comment['rpid'], comment['member']['uname'])
+                    comments.extend(replies)
+        except requests.RequestException as e:
+            print(f"请求错误: {e}")
+            break
+        time.sleep(2)
+    return comments
 
-    def save_to_csv(self, comments: List[Comment], filename: str):
-        """将评论保存到CSV文件"""
-        Path("./result").mkdir(exist_ok=True)  # 确保存储目录存在
-        with open(f"./result/{filename}.csv", "w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=Comment().__dict__.keys())
-            writer.writeheader()  # 写入表头
-            for comment in comments:
-                writer.writerow(comment.to_dict())  # 写入每条评论数据
 
-# 执行模块
-def main():
-    crawler = BiliCommentCrawler()
-    
-    # 读取视频列表并爬取评论
-    with open('./video_list.csv', 'r') as f:
-        reader = csv.reader(f)
-        next(reader)  # 跳过标题行
-        
+# 获取二级评论
+def Fetch_comment_replies(video_id, comment_id, parent_user_name, max_pages=100):
+    replies = []
+    for page in range(1, max_pages + 1):
+        url = f'https://api.bilibili.com/x/v2/reply/reply?oid={video_id}&type=1&root={comment_id}&ps=10&pn={page}'
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                data = response.json().get('data', {})
+                for reply in data.get('replies', []):
+                    reply_info = {
+                        '用户昵称': reply['member']['uname'],
+                        '评论内容': reply['content']['message'],
+                        '被回复用户': parent_user_name,
+                        '评论层级': '二级评论',
+                        '性别': reply['member']['sex'],
+                        '用户当前等级': reply['member']['level_info']['current_level'],
+                        '点赞数量': reply['like'],
+                        '回复时间': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(reply['ctime']))
+                    }
+                    replies.append(reply_info)
+        except requests.RequestException as e:
+            print(f"请求错误: {e}")
+            break
+        time.sleep(2)
+    return replies
+
+
+# 保存评论数据到 CSV 文件
+def Save_comments_to_csv(comments, video_bv):
+    with open(f'./result/{video_bv}.csv', mode='w', encoding='utf-8', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=['用户昵称', '性别', '评论内容', '被回复用户', '评论层级', '用户当前等级', '点赞数量', '回复时间'])
+        writer.writeheader()
+        for comment in comments:
+            writer.writerow(comment)
+
+
+
+# 读取视频列表并爬取评论
+def main(filename='./video_list.csv'):
+    with open(filename, mode='r') as file:
+        reader = csv.reader(file)
+        next(reader)  # 跳过第一行（标题行）
         for row in reader:
-            video_name, bvid = row[0], row[1]
-            print(f"正在处理: {video_name} ({bvid})")
-            
-            # 获取视频aid并爬取评论
-            aid = crawler.get_aid(bvid)
-            if aid:
-                comments = crawler.fetch_comments(aid)
-                crawler.save_to_csv(comments, video_name)
-                print(f"已保存 {len(comments)} 条评论")
-            else:
-                print(f"获取aid失败: {bvid}")
+            video_name, video_bv = row[0], row[1]
+            print(f'视频名字: {video_name}, video_bv: {video_bv}')
+            video_id = Get_video_id(video_bv)
+            if video_id:
+                comments = Fetch_comments(video_id)
+                Save_comments_to_csv(comments, video_name)
 
-if __name__ == "__main__":
-    main()
+
+if __name__ == '__main__':
+    main()  # 执行主函数
